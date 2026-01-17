@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -e
 
+if [ ! -t 0 ]; then
+  exec </dev/tty
+fi
+
+
 # ================== CONFIG ==================
 HASS_DEB_URL="https://github.com/home-assistant/supervised-installer/releases/download/4.0.0/homeassistant-supervised.deb"
 OS_AGENT_BASE="https://github.com/home-assistant/os-agent/releases/download/1.8.1"
