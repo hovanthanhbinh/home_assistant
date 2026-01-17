@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 
-# ================== STDIN FIX (BẮT BUỘC) ==================
-exec </dev/tty
+# ================== FORCE INTERACTIVE ==================
+if [[ ! -t 0 ]]; then
+  exec bash -i "$0"
+fi
 
 # ================== CONFIG ==================
 HASS_DEB_URL="https://github.com/home-assistant/supervised-installer/releases/download/4.0.0/homeassistant-supervised.deb"
@@ -11,7 +13,7 @@ IP_ADDR="$(hostname -I | awk '{print $1}')"
 
 # ================== COMMON ==================
 pause() {
-  read -rp "👉 Nhấn Enter để tiếp tục..." </dev/tty
+  read -rp "👉 Nhấn Enter để tiếp tục..."
 }
 
 # ================== FUNCTIONS ==================
@@ -36,9 +38,9 @@ install_hass() {
 
   apt update
   apt install -y \
-    apparmor jq wget curl udisks2 \
+    apparmor jq wget curl unzip udisks2 \
     libglib2.0-bin network-manager \
-    dbus systemd-journal-remote docker.io
+    dbus docker.io
 
   systemctl enable --now docker
 
@@ -114,7 +116,7 @@ while true; do
 -------------------------------------
 EOF
 
-  read -rp "👉 Chọn: " choice </dev/tty
+  read -rp "👉 Chọn: " choice
 
   case "$choice" in
     1) install_hass; pause ;;
