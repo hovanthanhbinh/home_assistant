@@ -1,32 +1,33 @@
 #!/usr/bin/env bash
-set -e
 
-if [ ! -t 0 ]; then
-  exec </dev/tty
-fi
-
+# ================== STDIN FIX (BẮT BUỘC) ==================
+exec </dev/tty
 
 # ================== CONFIG ==================
 HASS_DEB_URL="https://github.com/home-assistant/supervised-installer/releases/download/4.0.0/homeassistant-supervised.deb"
-OS_AGENT_BASE="https://github.com/home-assistant/os-agent/releases/download/1.8.1"
+OS_AGENT_VER="1.8.1"
 ARCH="$(dpkg --print-architecture)"
 IP_ADDR="$(hostname -I | awk '{print $1}')"
 
-# ================== FUNCTIONS ==================
+# ================== COMMON ==================
 pause() {
-  read -rp "👉 Nhấn Enter để tiếp tục..."
+  read -rp "👉 Nhấn Enter để tiếp tục..." </dev/tty
 }
 
+# ================== FUNCTIONS ==================
 install_os_agent() {
   echo ">>> Cài OS-Agent..."
+
   case "$ARCH" in
-    amd64) OS_DEB="os-agent_1.8.1_linux_x86_64.deb" ;;
-    arm64) OS_DEB="os-agent_1.8.1_linux_aarch64.deb" ;;
-    armhf) OS_DEB="os-agent_1.8.1_linux_armv7.deb" ;;
+    amd64) OS_DEB="os-agent_${OS_AGENT_VER}_linux_x86_64.deb" ;;
+    arm64) OS_DEB="os-agent_${OS_AGENT_VER}_linux_aarch64.deb" ;;
+    armhf) OS_DEB="os-agent_${OS_AGENT_VER}_linux_armv7.deb" ;;
     *) echo "❌ Kiến trúc không hỗ trợ: $ARCH"; return ;;
   esac
 
-  wget -qO /tmp/os-agent.deb "$OS_AGENT_BASE/$OS_DEB"
+  wget -qO /tmp/os-agent.deb \
+    "https://github.com/home-assistant/os-agent/releases/download/${OS_AGENT_VER}/${OS_DEB}"
+
   dpkg -i /tmp/os-agent.deb || apt-get -f install -y
 }
 
@@ -35,16 +36,9 @@ install_hass() {
 
   apt update
   apt install -y \
-    apparmor \
-    jq \
-    wget \
-    curl \
-    udisks2 \
-    libglib2.0-bin \
-    network-manager \
-    dbus \
-    systemd-journal-remote \
-    docker.io
+    apparmor jq wget curl udisks2 \
+    libglib2.0-bin network-manager \
+    dbus systemd-journal-remote docker.io
 
   systemctl enable --now docker
 
@@ -61,25 +55,29 @@ install_hass() {
 
 uninstall_hass() {
   echo ">>> Gỡ Home Assistant"
-  apt purge -y homeassistant-supervised
-  rm -rf /usr/share/hassio /etc/hassio /var/lib/docker
+  apt purge -y homeassistant-supervised os-agent
+  rm -rf /usr/share/hassio /etc/hassio
   echo "✅ Đã gỡ Home Assistant"
 }
 
 install_hacs() {
   echo ">>> Cài HACS..."
 
-  if [ ! -d "/usr/share/hassio/homeassistant" ]; then
-    echo "❌ Home Assistant chưa chạy"
+  HASS_PATH="/usr/share/hassio/homeassistant"
+
+  if [ ! -d "$HASS_PATH" ]; then
+    echo "❌ Home Assistant chưa chạy lần nào"
     return
   fi
 
-  mkdir -p /usr/share/hassio/homeassistant/custom_components
-  cd /usr/share/hassio/homeassistant/custom_components
+  mkdir -p "$HASS_PATH/custom_components"
+  cd "$HASS_PATH/custom_components" || return
 
-  wget -qO hacs.zip https://github.com/hacs/integration/releases/latest/download/hacs.zip
+  wget -qO hacs.zip \
+    https://github.com/hacs/integration/releases/latest/download/hacs.zip
+
   unzip -o hacs.zip -d hacs
-  rm hacs.zip
+  rm -f hacs.zip
 
   echo "✅ Cài HACS xong → restart Home Assistant"
 }
@@ -98,23 +96,25 @@ guide() {
 # ================== MENU ==================
 while true; do
   clear
-  echo "====================================="
-  echo "   HOME ASSISTANT PRO TOOL (FINAL)"
-  echo "====================================="
-  echo "📡 IP thiết bị: $IP_ADDR"
-  echo "🌐 Home Assistant: http://$IP_ADDR:8123"
-  echo "-------------------------------------"
-  echo "1️⃣  Cài Home Assistant Supervised"
-  echo "2️⃣  Gỡ Home Assistant"
-  echo "3️⃣  Cài HACS"
-  echo "4️⃣  Kiểm tra trạng thái"
-  echo "5️⃣  Hướng dẫn truy cập Home Assistant"
-  echo "6️⃣  Reboot thiết bị"
-  echo "7️⃣  Tắt thiết bị"
-  echo "0️⃣  Thoát"
-  echo "-------------------------------------"
+  cat <<EOF
+=====================================
+   HOME ASSISTANT PRO TOOL (FINAL)
+=====================================
+📡 IP thiết bị: $IP_ADDR
+🌐 Home Assistant: http://$IP_ADDR:8123
+-------------------------------------
+1️⃣  Cài Home Assistant Supervised
+2️⃣  Gỡ Home Assistant
+3️⃣  Cài HACS
+4️⃣  Kiểm tra trạng thái
+5️⃣  Hướng dẫn truy cập Home Assistant
+6️⃣  Reboot thiết bị
+7️⃣  Tắt thiết bị
+0️⃣  Thoát
+-------------------------------------
+EOF
 
-  read -rp "👉 Chọn: " choice
+  read -rp "👉 Chọn: " choice </dev/tty
 
   case "$choice" in
     1) install_hass; pause ;;
