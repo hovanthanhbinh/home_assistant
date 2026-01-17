@@ -36,24 +36,58 @@ install_os_agent() {
 install_hass() {
   echo ">>> Cài Home Assistant Supervised"
 
+  echo ">>> Chuẩn bị hệ thống"
   apt update
   apt install -y \
     apparmor jq wget curl unzip udisks2 \
-    libglib2.0-bin network-manager \
-    dbus docker.io
+    libglib2.0-bin network-manager dbus
+
+  # ================== DOCKER FIX ==================
+  echo ">>> Kiểm tra Docker"
+
+  if dpkg -l | grep -q docker.io; then
+    echo "⚠️ Phát hiện docker.io → gỡ bỏ"
+    apt purge -y docker.io docker-compose-plugin docker-compose
+    apt autoremove -y
+  fi
+
+  if ! command -v docker >/dev/null 2>&1 || ! docker --version | grep -q "Docker version"; then
+    echo ">>> Cài Docker CE (official)"
+
+    apt install -y ca-certificates gnupg lsb-release
+
+    mkdir -p /etc/apt/keyrings
+    curl -fsSL https://download.docker.com/linux/debian/gpg | \
+      gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+
+    echo \
+      "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+      https://download.docker.com/linux/debian \
+      $(lsb_release -cs) stable" \
+      > /etc/apt/sources.list.d/docker.list
+
+    apt update
+    apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  fi
 
   systemctl enable --now docker
 
+  # ================== OS AGENT ==================
   install_os_agent
 
+  # ================== HASS SUPERVISED ==================
   echo ">>> Cài Home Assistant Supervised (.deb)"
   wget -qO /tmp/homeassistant-supervised.deb "$HASS_DEB_URL"
 
-  BYPASS_OS_CHECK=true dpkg -i /tmp/homeassistant-supervised.deb || \
-  BYPASS_OS_CHECK=true apt-get -f install -y
-
-  echo "✅ Cài Home Assistant hoàn tất"
+  if BYPASS_OS_CHECK=true dpkg -i /tmp/homeassistant-supervised.deb; then
+    echo "✅ Home Assistant Supervised cài thành công"
+  else
+    echo "❌ Cài Home Assistant thất bại"
+    echo "👉 Kiểm tra bằng: journalctl -xe"
+    return 1
+  fi
 }
+
 
 uninstall_hass() {
   echo ">>> Gỡ Home Assistant"
