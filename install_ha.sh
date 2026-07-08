@@ -37,7 +37,7 @@ echo -e "💡 Target Machine Type: ${YELLOW}$HA_MACHINE_TYPE${NC}"
 
 # --- 2. UPDATE ---
 echo -e "${GREEN}>>> [1/6] Updating System Dependencies...${NC}"
-apt-get update && apt-get upgrade -y && apt autoremove -y
+apt-get update && apt autoremove -y
 
 apt-get install -y jq curl wget
 
